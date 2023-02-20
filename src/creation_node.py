@@ -7,11 +7,25 @@ import time
 import math
 import rospy
 from geometry_msgs.msg import Twist
+import yaml
 
 
 vehicle_name_list = []
 vehicle_list = []
+# config_path = rospy.get_param('/home/intern/test/tare_planner/src/mqtt_bridge/config/la_params.yaml')
+# config = rospy.get_param(config_path)
+# test = rospy.get_param('vehicle')
+# vehicle_name = config['vehicle']
+# vehicle_num = vehicle_name.split('/')
 
+with open('/home/intern/test/tare_planner/src/mqtt_bridge/config/la_params.yaml') as file:
+    config = yaml.safe_load(file)
+
+vehicle_name = config['vehicle']
+vehicle_split = vehicle_name.split('/')
+for i in vehicle_split:
+    if i.isnumeric():
+        vehicle_num = i
 
 class Timer:
     def __init__(self):
@@ -46,6 +60,8 @@ class Vehicle:
         self.obstacle_threshold = 1.0 # Distance threshold in meters
 
         self.topics = self.get_vehicle_topics()
+
+        self.redflag = 0
 
         #Subscribe to availability
         self.subavail(self.topics)
@@ -118,7 +134,6 @@ class Vehicle:
         for i in range(len(self.positions)):
             if self.isInsideCircularBoundary(self.odometry.x, self.odometry.y, self.odometry.z, self.obstacle_threshold, self.positions[i].position.x, self.positions[i].position_.y, self.positions[i].position_.z):
                 self.redflag = 1
-                print("working")
 
         rospy.loginfo("Received odometry message: position = %s, orientation = %s", self.position, self.orientation)
 
@@ -136,41 +151,6 @@ class Vehicle:
         for pose_stamped in path_msg.poses:
             position = pose_stamped.pose.position
             self.positions.append([position])
-
-    def isInsideCircularBoundary(centerX, centerY, centerZ, radius, pointX, pointY, pointZ):
-        distance = math.sqrt((pointX - centerX) ** 2 + (pointY - centerY) ** 2 + (pointZ - centerZ) ** 2)
-        return distance <= radius
-
-class CollisionAvoidance:
-    def __init__(self, vehicle_object):
-        self.vehicle = vehicle_object
-        self.odometry = vehicle_object.position
-        self.name = vehicle_object.name
-        self.local_path_sub = rospy.Subscriber("/sensor_coverage_planner/local_path", Path, self.path_callback)
-
-        self.obstacle_avoidance_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
-        self.other_vehicles_sub = rospy.Subscriber('/other_vehicle/odom', Odometry, self.other_vehicles_callback)
-
-    def path_callback(self, path_msg):
-        self.positions = []
-        for pose_stamped in path_msg.poses:
-            position = pose_stamped.pose.position
-            self.positions.append([position])
-        for i in range(len(self.positions)):
-            if self.isInsideCircularBoundary(self.odometry.x, self.odometry.y, self.odometry.z, self.obstacle_threshold, self.positions[i].position.x, self.positions[i].position_.y, self.positions[i].position_.z):
-                self.redflag = 1
-                print("working")
-
-
-    def other_vehicles_callback(self, odom):
-        # Check distance to other vehicle
-        distance = odom.pose.pose.position.x # Assuming other vehicle's position in x-axis
-        if distance < self.obstacle_threshold:
-            # Obstacle detected! Avoid it.
-            twist = Twist()
-            twist.linear.x = 0.0
-            twist.angular.z = 1.0 # Turn to the right
-            self.obstacle_avoidance_pub.publish(twist)
 
     def isInsideCircularBoundary(centerX, centerY, centerZ, radius, pointX, pointY, pointZ):
         distance = math.sqrt((pointX - centerX) ** 2 + (pointY - centerY) ** 2 + (pointZ - centerZ) ** 2)
@@ -195,8 +175,8 @@ def availtopics():
     # Get a list of all published topics
     topics = rospy.get_published_topics()
 
-    # Filter the list of topics to only include those with the header "/availability"
-    availability_topics = [topic_name for topic_name, _ in topics if (topic_name.find('availability')!=(-1))]
+    # Filter the list of topics to only include those with the header "/Availability"
+    availability_topics = [topic_name for topic_name, _ in topics if (topic_name.find('Availability')!=(-1))]
 
     #Dictionary for availability topics
     avail_dict = {}
@@ -205,7 +185,7 @@ def availtopics():
     for topic_name in availability_topics:
         split = topic_name.split('/')
         for elem in split:
-            if elem.isnumeric():
+            if (elem.isnumeric() and (elem != vehicle_num)):
                 key_name = f"vehicle_{elem}" # Generate a key name like "vehicle_1", "vehicle_2", etc.
                 if key_name not in avail_dict:
                     avail_dict[key_name] = topic_name
@@ -215,10 +195,10 @@ def availtopics():
 
 def updateVehicleStatus(vehicles):
     for vehicle in vehicles:
+        print(vehicle.name)
         vehicle.update_vehicle()
         if vehicle.redflag == 1:
             print(vehicle.name + "is invading personal space")
-        print("working")
 
 if __name__ == '__main__':
     # Initialize the ROS node
