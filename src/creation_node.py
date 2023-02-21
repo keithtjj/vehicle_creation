@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import rospy
 from std_msgs.msg import String, Int32MultiArray, Int32, Bool
@@ -17,8 +17,9 @@ vehicle_list = []
 # test = rospy.get_param('vehicle')
 # vehicle_name = config['vehicle']
 # vehicle_num = vehicle_name.split('/')
+param_file = "/home/intern/test/tare_planner/src/mqtt_bridge/config/la_params.yaml"
 
-with open('/home/intern/test/tare_planner/src/mqtt_bridge/config/la_params.yaml') as file:
+with open(param_file) as file:
     config = yaml.safe_load(file)
 
 vehicle_name = config['vehicle']
@@ -54,13 +55,10 @@ class Vehicle:
         self.number = vehicle_index
         self.name = name
         self.availability = False
-
         self._last_available = None
-        
         self.obstacle_threshold = 1.0 # Distance threshold in meters
-
         self.topics = self.get_vehicle_topics()
-
+        self.local_path = []
         self.redflag = 0
 
         #Subscribe to availability
@@ -131,11 +129,11 @@ class Vehicle:
         self.orientation = odom_msg.pose.pose.orientation
 
         # Check if vehicle odometry interferes with local path
-        for i in range(len(self.positions)):
-            if self.isInsideCircularBoundary(self.odometry.x, self.odometry.y, self.odometry.z, self.obstacle_threshold, self.positions[i].position.x, self.positions[i].position_.y, self.positions[i].position_.z):
+        for i in range(len(self.local_path)):
+            if self.isInsideCircularBoundary(self.position.x, self.position.y, self.position.z, self.obstacle_threshold, self.local_path[i]['position_x'], self.local_path[i]['position_y'], self.local_path[i]['position_z']):
                 self.redflag = 1
 
-        rospy.loginfo("Received odometry message: position = %s, orientation = %s", self.position, self.orientation)
+        # rospy.loginfo("Received odometry message: position = %s, orientation = %s", self.position, self.orientation)
 
     def exploring_subspace_callback(self, array_msg):
         self.exploring_cells_indices = array_msg.data
@@ -147,12 +145,20 @@ class Vehicle:
         self.priority = int_msg.data
 
     def path_callback(self, path_msg):
-        self.positions = []
         for pose_stamped in path_msg.poses:
-            position = pose_stamped.pose.position
-            self.positions.append([position])
+            position_x = pose_stamped.pose.position.x
+            position_y = pose_stamped.pose.position.y
+            position_z = pose_stamped.pose.position.z
+            position = dict(position_x = pose_stamped.pose.position.x,position_y = pose_stamped.pose.position.y,position_z = pose_stamped.pose.position.z)
+            self.local_path.append(position)
+        # for i in range(len(self.local_path)):
+        #         print(self.local_path[i]['position_x'])
+        #         print(self.local_path[i]['position_y'])
+        #         print(self.local_path[i]['position_z'])
 
-    def isInsideCircularBoundary(centerX, centerY, centerZ, radius, pointX, pointY, pointZ):
+        # print(self.local_path)
+
+    def isInsideCircularBoundary(self, centerX, centerY, centerZ, radius, pointX, pointY, pointZ):
         distance = math.sqrt((pointX - centerX) ** 2 + (pointY - centerY) ** 2 + (pointZ - centerZ) ** 2)
         return distance <= radius
 
@@ -195,7 +201,7 @@ def availtopics():
 
 def updateVehicleStatus(vehicles):
     for vehicle in vehicles:
-        print(vehicle.name)
+        # print(vehicle.name)
         vehicle.update_vehicle()
         if vehicle.redflag == 1:
             print(vehicle.name + "is invading personal space")
@@ -205,7 +211,7 @@ if __name__ == '__main__':
     rospy.init_node('vehicle_manager')
 
 
-r = rospy.Rate(1) # 10hz
+r = rospy.Rate(0.1) # 10hz
 while not rospy.is_shutdown():
 
     availtopics()
