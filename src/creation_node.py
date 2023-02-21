@@ -211,11 +211,12 @@ if __name__ == '__main__':
     rospy.init_node('vehicle_manager')
 
 
-r = rospy.Rate(0.1) # 10hz
-while not rospy.is_shutdown():
+r = rospy.Rate(0.5) # 10hz
+while not (rospy.is_shutdown() or KeyboardInterrupt):
 
     availtopics()
     updateVehicleStatus(vehicle_list)
+    rospy.sleep(1)
 
 
 
