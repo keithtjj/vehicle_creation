@@ -8,7 +8,12 @@ import math
 import rospy
 from geometry_msgs.msg import Twist
 import yaml
+import os
 
+script_path = os.path.abspath(__file__)
+script_dir = os.path.dirname(script_path)
+project_dir = os.path.dirname(os.path.dirname(script_dir))
+param_file = os.path.join(project_dir, "mqtt_bridge/config/la_params.yaml")
 
 vehicle_name_list = []
 vehicle_list = []
@@ -17,7 +22,6 @@ vehicle_list = []
 # test = rospy.get_param('vehicle')
 # vehicle_name = config['vehicle']
 # vehicle_num = vehicle_name.split('/')
-param_file = "/home/intern/test/tare_planner/src/mqtt_bridge/config/la_params.yaml"
 
 with open(param_file) as file:
     config = yaml.safe_load(file)
