@@ -12,12 +12,15 @@ def publish_availability(is_available):
     # Set the loop rate to 10 Hz
     rate = rospy.Rate(10)
 
-    # Publish availability messages until the node is shut down
-    while not rospy.is_shutdown():
-        # Publish the current availability status
-        pub.publish(is_available)
-        # Wait for the next iteration of the loop
-        rate.sleep()
+    try: 
+        # Publish availability messages until the node is shut down
+        while not rospy.is_shutdown():
+            # Publish the current availability status
+            pub.publish(is_available)
+            # Wait for the next iteration of the loop
+            rate.sleep()
+    except KeyboardInterrupt:
+        quit()
 
 if __name__ == '__main__':
     # Publish availability as True

@@ -18,20 +18,26 @@ vehicle_split = vehicle_name.split('/')
 for i in vehicle_split:
     if i.isnumeric():
         vehicle_num = i
-        print(vehicle_num)
 
 def publish_priority(priority):
     # Initialize the ROS node
     rospy.init_node('priority_publisher', anonymous=True)
 
     # Create a publisher for the priority topic
-    pub = rospy.Publisher('priority', Int32, queue_size=10)
+    pub = rospy.Publisher('Priority', Int32, queue_size=10)
 
-    # Publish the priority number
-    pub.publish(priority)
+    # Set the loop rate to 10 Hz
+    rate = rospy.Rate(10)
 
-    # Spin the ROS node to keep it alive
-    rospy.spin()
+    try:
+        # Publish priority messages until the node is shut down
+        while not rospy.is_shutdown():
+            # Publish the priority number
+            pub.publish(priority)
+            # Wait for the next iteration of the loop
+            rate.sleep()
+    except KeyboardInterrupt:
+        quit()
 
 if __name__ == '__main__':
     publish_priority(int(vehicle_num))
