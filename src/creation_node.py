@@ -17,11 +17,6 @@ param_file = os.path.join(project_dir, "mqtt_bridge/config/la_params.yaml")
 
 vehicle_name_list = []
 vehicle_list = []
-# config_path = rospy.get_param('/home/intern/test/tare_planner/src/mqtt_bridge/config/la_params.yaml')
-# config = rospy.get_param(config_path)
-# test = rospy.get_param('vehicle')
-# vehicle_name = config['vehicle']
-# vehicle_num = vehicle_name.split('/')
 
 with open(param_file) as file:
     config = yaml.safe_load(file)
