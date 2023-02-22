@@ -17,6 +17,8 @@ param_file = os.path.join(project_dir, "mqtt_bridge/config/la_params.yaml")
 
 vehicle_name_list = []
 vehicle_list = []
+exploring_cell_indices = [0]
+covered_cell_indices = [0]
 
 with open(param_file) as file:
     config = yaml.safe_load(file)
@@ -59,6 +61,8 @@ class Vehicle:
         self.topics = self.get_vehicle_topics()
         self.local_path = []
         self.redflag = 0
+        self.exploring_cells_indices = []
+        self.covered_cells_indices = []
 
         #Subscribe to availability
         self.subavail(self.topics)
@@ -95,10 +99,10 @@ class Vehicle:
             if (topic.endswith("Odometry")):
                 self.odom_sub = rospy.Subscriber(topic, Odometry, self.odometry_callback)
                 print(self.name, "subscribed to Odometry")
-            if (topic.endswith("ExploringSubspacesIndices")):
+            if (topic.endswith("Exploring_subspaces")):
                 self.exploring_sub = rospy.Subscriber(topic, Int32MultiArray, self.exploring_subspace_callback)
                 print(self.name, "subscribed to indices")
-            if (topic.endswith("CoveredSubspacesIndices")):
+            if (topic.endswith("Covered_subspaces")):
                 self.covered_sub = rospy.Subscriber(topic, Int32MultiArray, self.covered_subspace_callback)
                 print(self.name, "subscribed to indices")
             if (topic.endswith("Priority")):
@@ -136,9 +140,11 @@ class Vehicle:
 
     def exploring_subspace_callback(self, array_msg):
         self.exploring_cells_indices = array_msg.data
+        print(self.exploring_cells_indices)
 
     def covered_subspace_callback(self, array_msg):
         self.covered_cells_indices = array_msg.data
+        print(self.covered_cells_indices)
     
     def priority_callback(self, int_msg):
         self.priority = int_msg.data
@@ -205,17 +211,36 @@ def updateVehicleStatus(vehicles):
         if vehicle.redflag == 1:
             print(vehicle.name + "is invading personal space")
 
+def pub_exploring_cell_indices(vehicles):
+    exploring_array = Int32MultiArray()
+    for vehicle in vehicles:
+        exploring_cell_indices.append(vehicle.exploring_cells_indices)
+    my_1d_array = exploring_cell_indices.flatten()
+    exploring_array.data = my_1d_array.tolist()
+    exploring_indices_publisher.publish(exploring_array)
+
+def pub_covered_cell_indices(vehicles):
+    cover_array = Int32MultiArray()
+    for vehicle in vehicles:
+        covered_cell_indices.append(vehicle.covered_cells_indices)
+    my_1d_array = covered_cell_indices.flatten()
+    cover_array.data = my_1d_array.tolist()
+    covered_indices_publisher.publish(cover_array)
+
 if __name__ == '__main__':
     # Initialize the ROS node
     rospy.init_node('vehicle_manager')
+    
+    exploring_indices_publisher = rospy.Publisher("/Combined_Exploring_Indices", Int32MultiArray, queue_size=10)
+    covered_indices_publisher = rospy.Publisher("/Combined_Covered_Indices", Int32MultiArray, queue_size=10)
 
-
-r = rospy.Rate(0.5) # 10hz
-while not (rospy.is_shutdown() or KeyboardInterrupt):
-
-    availtopics()
-    updateVehicleStatus(vehicle_list)
-    rospy.sleep(1)
+    r = rospy.Rate(0.5) # 10hz
+    while not rospy.is_shutdown():
+        availtopics()
+        updateVehicleStatus(vehicle_list)
+        pub_covered_cell_indices(vehicle_list)
+        pub_exploring_cell_indices(vehicle_list)
+        rospy.sleep(1)
 
 
 
