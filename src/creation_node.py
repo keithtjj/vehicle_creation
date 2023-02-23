@@ -61,8 +61,8 @@ class Vehicle:
         self.topics = self.get_vehicle_topics()
         self.local_path = []
         self.redflag = 0
-        self.exploring_cells_indices = []
-        self.covered_cells_indices = []
+        self.exploring_indices = []
+        self.covered_indices = []
 
         #Subscribe to availability
         self.subavail(self.topics)
@@ -135,16 +135,18 @@ class Vehicle:
         for i in range(len(self.local_path)):
             if self.isInsideCircularBoundary(self.position.x, self.position.y, self.position.z, self.obstacle_threshold, self.local_path[i]['position_x'], self.local_path[i]['position_y'], self.local_path[i]['position_z']):
                 self.redflag = 1
+            else:
+                self.redflag = 0          
 
         # rospy.loginfo("Received odometry message: position = %s, orientation = %s", self.position, self.orientation)
 
     def exploring_subspace_callback(self, array_msg):
-        self.exploring_cells_indices = array_msg.data
-        print(self.exploring_cells_indices)
+        self.exploring_indices = array_msg.data
+        # print(self.exploring_cells_indices)
 
     def covered_subspace_callback(self, array_msg):
-        self.covered_cells_indices = array_msg.data
-        print(self.covered_cells_indices)
+        self.covered_indices = array_msg.data
+        # print(self.covered_cells_indices)
     
     def priority_callback(self, int_msg):
         self.priority = int_msg.data
@@ -213,18 +215,21 @@ def updateVehicleStatus(vehicles):
 
 def pub_exploring_cell_indices(vehicles):
     exploring_array = Int32MultiArray()
+    exploring_cell_indices = []
     for vehicle in vehicles:
-        exploring_cell_indices.append(vehicle.exploring_cells_indices)
-    my_1d_array = exploring_cell_indices.flatten()
-    exploring_array.data = my_1d_array.tolist()
+        for i in vehicle.exploring_indices:
+            print(i)
+            exploring_cell_indices.append(int(i))
+    exploring_array.data = exploring_cell_indices
     exploring_indices_publisher.publish(exploring_array)
 
 def pub_covered_cell_indices(vehicles):
     cover_array = Int32MultiArray()
+    covered_cell_indices = []
     for vehicle in vehicles:
-        covered_cell_indices.append(vehicle.covered_cells_indices)
-    my_1d_array = covered_cell_indices.flatten()
-    cover_array.data = my_1d_array.tolist()
+        for i in vehicle.covered_indices:
+            covered_cell_indices.append(int(i))
+    cover_array.data = covered_cell_indices
     covered_indices_publisher.publish(cover_array)
 
 if __name__ == '__main__':
