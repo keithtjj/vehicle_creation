@@ -211,7 +211,7 @@ def updateVehicleStatus(vehicles):
         # print(vehicle.name)
         vehicle.update_vehicle()
         if vehicle.redflag == 1:
-            print(vehicle.name + "is invading personal space")
+            print(vehicle.name + " is invading personal space")
 
 def pub_exploring_cell_indices(vehicles):
     exploring_array = Int32MultiArray()
