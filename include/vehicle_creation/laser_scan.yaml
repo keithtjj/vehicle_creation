@@ -1,0 +1,5 @@
+range_min: 0.2
+range_max: 10.0
+angle_min: -1.57
+angle_max: 1.57
+output_frame: /map
