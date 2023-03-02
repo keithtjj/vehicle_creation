@@ -32,14 +32,15 @@ param_file = os.path.join(project_dir, "mqtt_bridge/config/la_params.yaml")
 
 vehicle_name_list = []
 vehicle_list = []
+vehicle_index_list = []
 exploring_cell_indices = [0]
 covered_cell_indices = [0]
 
 generators = []
 generators_name = []
 
-corners = np.array([[-1.0, -1.0, 6.0, 6.0], 
-					[-1.0, 6.0, 6.0, -1.0]])
+corners = np.array([[-100.0, -100.0, 100.0, 100.0], 
+					[-100.0, 100.0, 100.0, -100.0]])
 safe_rad = 0.2
 
 with open(param_file) as file:
@@ -54,21 +55,6 @@ for i in vehicle_split:
 tare_list = []
 tare_name_list = []
 tare_wp = PointStamped()
-
-class tare:
-    def __init__(self,id,topic):
-        self.wp = PointStamped()
-        self.id = id
-        self.tare_sub = rospy.Subscriber(topic, PointStamped, self.multi_waypoint_callback)
-        self.point = point()
-
-    def multi_waypoint_callback(self,waypoint):
-        now = rospy.Time.now()
-        if (waypoint.header.stamp.to_sec() > (now.to_sec()-5)):
-            self.wp = waypoint
-            self.point.x = waypoint.point.x
-            self.point.y = waypoint.point.y
-            self.point.z = waypoint.point.z        
 
 class point:
     def __init__(self,x=0,y=0,z=0):
@@ -119,6 +105,9 @@ class Vehicle:
         self.pos = point()
         self.planner = None
 
+        self.wp = PointStamped()
+        self.point = point()
+
         #Subscribe to availability
         self.subavail(self.topics)
 
@@ -164,9 +153,8 @@ class Vehicle:
                 self.priority_sub = rospy.Subscriber(topic, Int32, self.priority_callback)
                 print(self.name, "subscribed to priority")
             if (topic.endswith("tare_waypoint")):
-                self.planner = tare(self.name,topic)
-                tare_list.append(self.planner)
-                tare_name_list.append(self.planner.id)
+                self.tare_sub = rospy.Subscriber(topic, PointStamped, self.multi_waypoint_callback)
+                print(self.name, "subscribed to way points")
 
     #Publish topics
     def pubtopics(self):
@@ -189,7 +177,7 @@ class Vehicle:
         # Store latest pose of the robot
         robot_id = odom_msg.child_frame_id
         pose = odom_msg.pose.pose
-        self.robot_poses[robot_id] = pose
+        # self.robot_poses[robot_id] = pose
 
         # Get the robot's linear and angular velocities
         self.linear_velocity = odom_msg.twist.twist.linear
@@ -202,7 +190,7 @@ class Vehicle:
         self.pos.z = odom_msg.pose.pose.position.z
 
         # Check if vehicle odometry interferes with local path
-        if (vehicle.number != vehicle_num):
+        if (self.number != vehicle_num):
             for i in range(len(self.local_path)):
                 if self.isInsideCircularBoundary(self.position.x, self.position.y, self.position.z, self.obstacle_threshold, self.local_path[i]['position_x'], self.local_path[i]['position_y'], self.local_path[i]['position_z']):
                     self.redflag = 1
@@ -239,6 +227,14 @@ class Vehicle:
     def isInsideCircularBoundary(self, centerX, centerY, centerZ, radius, pointX, pointY, pointZ):
         distance = math.sqrt((pointX - centerX) ** 2 + (pointY - centerY) ** 2 + (pointZ - centerZ) ** 2)
         return distance <= radius
+
+    def multi_waypoint_callback(self,waypoint):
+        now = rospy.Time.now()
+        if (waypoint.header.stamp.to_sec() > (now.to_sec()-5)):
+            self.wp = waypoint
+            self.point.x = waypoint.point.x
+            self.point.y = waypoint.point.y
+            self.point.z = waypoint.point.z   
 
 class CoverageMapGenerator:
     def __init__(self, robot_name):
@@ -368,6 +364,7 @@ def generate_vehicle(topic, vehicle_num, name):
         #Add Vehicle Created to list of created vehicles
         vehicle_name_list.append(vehicle.name)
         vehicle_list.append(vehicle)  
+        vehicle_index_list.append(int(vehicle.number))
 
         # Return the new vehicle object
         return vehicle
@@ -402,7 +399,6 @@ def availtopics():
     #         generator = CoverageMapGenerator(robot_name)
     #         generators.append(generator)
     #         generators_name.append(robot_name)
-
 
 def updateVehicleStatus(vehicles):
     for vehicle in vehicles:
@@ -463,6 +459,7 @@ def collision_avoidance(vehicle_list,vehicle_name_list):
 
     for num, vehicle in enumerate(vehicle_list):
         if (vehicle.planner != None):
+            print(vehicle.pos.getxy())
             robots[num].set_bvc(vehicle.pos.getxy(), safe_rad, corners)
             robots[num].set_goal(vehicle.planner.point.getxy())
             flag = 1
@@ -477,8 +474,9 @@ def collision_avoidance(vehicle_list,vehicle_name_list):
                 all_pos = np.zeros((2,5))
                 for r in range(len(vehicle_name_list)):
                     all_pos[:,r,None] = robots[r].get_pos() # none is used to preserve dimensionality
+                    print(all_pos)
 
-                bb = [x for x in vehicle_name_list if x != name]
+                bb = [x for x in vehicle_index_list if x != i]
                 bb_array = np.array(bb) # this is the IDs of neighboring robots
                 
                 # extract own pos for robot i, as well as all other neighbor robots

@@ -26,14 +26,16 @@ for i in vehicle_split:
     if i.isnumeric():
         vehicle_num = i
 
+tare_wp = PointStamped()
 
 def store_tare_callback(data):
     rospy.loginfo("Received point at time %d", data.header.stamp.to_sec())
     global tare_wp
     tare_wp = data
+    publish_wp()
 
 def publish_wp():
-        pub.Publish(tare_wp)
+        pub.publish(tare_wp)
 
 
 if __name__ == '__main__':
@@ -41,5 +43,4 @@ if __name__ == '__main__':
     rospy.Subscriber("/tare_way_point", PointStamped, store_tare_callback)
     global pub 
     pub = rospy.Publisher('/way_point', PointStamped, queue_size=10)
-
     rospy.spin()

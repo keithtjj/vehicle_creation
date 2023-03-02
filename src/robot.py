@@ -37,6 +37,7 @@ class Robot:
 		self.goal = np.reshape(goal, (2,1))
 
 	def get_pos(self):
+		self.pos = None
 		return self.pos
 
 	def mem_nbr_dist(self, nbr_pos, nbr_id):
