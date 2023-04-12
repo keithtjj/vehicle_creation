@@ -158,7 +158,7 @@ class Vehicle:
                 self.tare_sub = rospy.Subscriber(topic, PointStamped, self.multi_waypoint_callback)
                 print(self.name, "subscribed to way points")
             if (topic.endswith("poi")):
-                self.tare_sub = rospy.Subscriber(topic, PointStamped, self.poi_callback)
+                self.tare_sub = rospy.Subscriber(topic, PoseStamped, self.poi_callback)
                 print(self.name, "subscribed to pois")
 
     #Publish topics
@@ -240,8 +240,8 @@ class Vehicle:
         if poi.header.frame_id == 'test':
             return
         for po in poi_list:
-            dx = po.position.x - poi.position.x
-            dy = po.position.y - poi.position.y
+            dx = po.pose.position.x - poi.pose.position.x
+            dy = po.pose.position.y - poi.pose.position.y
             if abs(dx) < 2 or abs(dy) < 2:
                 return 
         poi_list.append(poi)
