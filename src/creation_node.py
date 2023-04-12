@@ -7,7 +7,7 @@ from sensor_msgs.msg import LaserScan
 import time 
 import math
 import rospy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, PoseStamped
 import yaml
 import os
 import numpy as np
@@ -55,6 +55,8 @@ for i in vehicle_split:
 tare_list = []
 tare_name_list = []
 tare_wp = PointStamped()
+
+poi_list = []
 
 class point:
     def __init__(self,x=0,y=0,z=0):
@@ -155,6 +157,9 @@ class Vehicle:
             if (topic.endswith("tare_waypoint")):
                 self.tare_sub = rospy.Subscriber(topic, PointStamped, self.multi_waypoint_callback)
                 print(self.name, "subscribed to way points")
+            if (topic.endswith("poi")):
+                self.tare_sub = rospy.Subscriber(topic, PointStamped, self.poi_callback)
+                print(self.name, "subscribed to pois")
 
     #Publish topics
     def pubtopics(self):
@@ -217,12 +222,6 @@ class Vehicle:
             position_z = pose_stamped.pose.position.z
             position = dict(position_x = pose_stamped.pose.position.x,position_y = pose_stamped.pose.position.y,position_z = pose_stamped.pose.position.z)
             self.local_path.append(position)
-        # for i in range(len(self.local_path)):
-        #         print(self.local_path[i]['position_x'])
-        #         print(self.local_path[i]['position_y'])
-        #         print(self.local_path[i]['position_z'])
-
-        # print(self.local_path)
 
     def isInsideCircularBoundary(self, centerX, centerY, centerZ, radius, pointX, pointY, pointZ):
         distance = math.sqrt((pointX - centerX) ** 2 + (pointY - centerY) ** 2 + (pointZ - centerZ) ** 2)
@@ -235,6 +234,19 @@ class Vehicle:
             self.point.x = waypoint.point.x
             self.point.y = waypoint.point.y
             self.point.z = waypoint.point.z   
+
+    def poi_callback(self, poi):
+        global poi_list
+        if poi.header.frame_id == 'test':
+            return
+        for po in poi_list:
+            dx = po.position.x - poi.position.x
+            dy = po.position.y - poi.position.y
+            if abs(dx) < 2 or abs(dy) < 2:
+                return 
+        poi_list.append(poi)
+        pub_poi.publish(poi)
+        return 
 
 class CoverageMapGenerator:
     def __init__(self, robot_name):
@@ -269,7 +281,6 @@ class CoverageMapGenerator:
         # Publish coverage map
         if self.binary_map is not None:
             self.coverage_map_pub.publish(self.binary_map)
-
 
 class BufferedVoronoiCell:
     def __init__(self, pos, rs):
@@ -498,6 +509,7 @@ if __name__ == '__main__':
     
     exploring_indices_publisher = rospy.Publisher("/Combined_Exploring_Indices", Int32MultiArray, queue_size=10)
     covered_indices_publisher = rospy.Publisher("/Combined_Covered_Indices", Int32MultiArray, queue_size=10)
+    pub_poi = rospy.Publisher('/poi_in', PoseStamped, queue_size=10)
 
     r = rospy.Rate(0.5) # 10hz
     while not rospy.is_shutdown():
