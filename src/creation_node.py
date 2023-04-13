@@ -7,7 +7,7 @@ from sensor_msgs.msg import LaserScan
 import time 
 import math
 import rospy
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import Twist, PoseStamped, PointStamped
 import yaml
 import os
 import numpy as np
@@ -15,7 +15,6 @@ from sensor_msgs.msg import PointCloud2
 # from octomap_msgs.msg import Octomap
 # from octomap_msgs import binary_octomap
 
-from geometry_msgs.msg import PointStamped
 from visualization_msgs.msg import Marker
 from std_msgs.msg import ColorRGBA
 
