@@ -236,12 +236,14 @@ class Vehicle:
 
     def poi_callback(self, poi):
         global poi_list
+        r=3
         if poi.header.frame_id == 'test':
             return
         for po in poi_list:
             dx = po.pose.position.x - poi.pose.position.x
             dy = po.pose.position.y - poi.pose.position.y
-            if abs(dx) < 2 or abs(dy) < 2:
+            dxy = dx**2 + dy **2
+            if dxy < r**2:
                 return 
         poi_list.append(poi)
         pub_poi.publish(poi)
