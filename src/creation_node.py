@@ -14,7 +14,7 @@ import numpy as np
 from sensor_msgs.msg import PointCloud2
 # from octomap_msgs.msg import Octomap
 # from octomap_msgs import binary_octomap
-
+from visibility_graph_msg.msg import Graph
 from visualization_msgs.msg import Marker
 from std_msgs.msg import ColorRGBA
 
@@ -54,6 +54,7 @@ for i in vehicle_split:
 tare_list = []
 tare_name_list = []
 tare_wp = PointStamped()
+best_vg = Graph()
 
 poi_list = []
 
@@ -159,6 +160,9 @@ class Vehicle:
             if (topic.endswith("poi")):
                 self.tare_sub = rospy.Subscriber(topic, PoseStamped, self.poi_callback)
                 print(self.name, "subscribed to pois")
+            if (topic.endswith("vgraph")):
+                self.tare_sub = rospy.Subscriber(topic, Graph, self.vg_callback)
+                print(self.name, "subscribed to vgraphs")
 
     #Publish topics
     def pubtopics(self):
@@ -247,7 +251,12 @@ class Vehicle:
                 return 
         poi_list.append(poi)
         pub_poi.publish(poi)
-        return 
+    
+    def vg_callback(self, vg):
+        global best_vg
+        if vg.size > best_vg.size:
+            best_vg = vg
+            pub_vg.publish(vg)
 
 class CoverageMapGenerator:
     def __init__(self, robot_name):
@@ -511,6 +520,7 @@ if __name__ == '__main__':
     exploring_indices_publisher = rospy.Publisher("/Combined_Exploring_Indices", Int32MultiArray, queue_size=10)
     covered_indices_publisher = rospy.Publisher("/Combined_Covered_Indices", Int32MultiArray, queue_size=10)
     pub_poi = rospy.Publisher('/poi_in', PoseStamped, queue_size=10)
+    pub_vg = rospy.Publisher('/decoded_vgraph', Graph, queue_size=10)
 
     r = rospy.Rate(0.5) # 10hz
     while not rospy.is_shutdown():
