@@ -163,6 +163,9 @@ class Vehicle:
             if (topic.endswith("vgraph")):
                 self.tare_sub = rospy.Subscriber(topic, Graph, self.vg_callback)
                 print(self.name, "subscribed to vgraphs")
+            if (topic.endswith("del_model")):
+                self.tare_sub = rospy.Subscriber(topic, String, self.del_model_callback)
+                print(self.name, "subscribed to model yeeter")
 
     #Publish topics
     def pubtopics(self):
@@ -257,6 +260,9 @@ class Vehicle:
         if vg.size > best_vg.size:
             best_vg = vg
             pub_vg.publish(vg)
+    
+    def del_model_callback(self, name):
+        pub_kill.publish(name)
 
 class CoverageMapGenerator:
     def __init__(self, robot_name):
@@ -521,6 +527,7 @@ if __name__ == '__main__':
     covered_indices_publisher = rospy.Publisher("/Combined_Covered_Indices", Int32MultiArray, queue_size=10)
     pub_poi = rospy.Publisher('/poi_in', PoseStamped, queue_size=10)
     pub_vg = rospy.Publisher('/decoded_vgraph', Graph, queue_size=10)
+    pub_kill = rospy.Publisher('/del_model', String, queue_size=5)
 
     r = rospy.Rate(0.5) # 10hz
     while not rospy.is_shutdown():
