@@ -248,7 +248,7 @@ class Vehicle:
             return
         for po in poi_list:
             if po.header.frame_id != poi.header.frame_id:
-                return
+                continue
             dx = po.pose.position.x - poi.pose.position.x
             dy = po.pose.position.y - poi.pose.position.y
             dxy = dx**2 + dy **2
