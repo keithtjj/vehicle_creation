@@ -243,7 +243,7 @@ class Vehicle:
 
     def poi_callback(self, poi):
         global poi_list
-        r=3
+        r=5
         if poi.header.frame_id == 'test':
             return
         for po in poi_list:
