@@ -435,6 +435,7 @@ def updateVehicleStatus(vehicles):
         vehicle.update_vehicle()
         if vehicle.redflag == 1:
             print(vehicle.name + " is invading personal space")
+        vehicle.subtopics(vehicle.topics)
 
 def pub_exploring_cell_indices(vehicles):
     exploring_array = Int32MultiArray()
@@ -531,16 +532,11 @@ if __name__ == '__main__':
     pub_vg = rospy.Publisher('/decoded_vgraph', Graph, queue_size=10)
     pub_kill = rospy.Publisher('/del_model', String, queue_size=5)
 
-    r = rospy.Rate(0.5) # 10hz
+    rate = rospy.Rate(0.5)
     while not rospy.is_shutdown():
         availtopics()
         updateVehicleStatus(vehicle_list)
         pub_covered_cell_indices(vehicle_list)
         pub_exploring_cell_indices(vehicle_list)
         collision_avoidance(vehicle_list,vehicle_name_list)
-        rospy.sleep(1)
-
-
-
-
-
+        rate.sleep()
