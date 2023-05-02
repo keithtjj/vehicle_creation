@@ -435,7 +435,6 @@ def updateVehicleStatus(vehicles):
         vehicle.update_vehicle()
         if vehicle.redflag == 1:
             print(vehicle.name + " is invading personal space")
-        vehicle.subtopics(vehicle.topics)
 
 def pub_exploring_cell_indices(vehicles):
     exploring_array = Int32MultiArray()
@@ -522,6 +521,10 @@ def collision_avoidance(vehicle_list,vehicle_name_list):
                 closest = rbt.bvc_find_closest_to_goal()
                 print(closest)
 
+def refresher(stringy):
+    for vehicle in vehicle_list:
+        vehicle.subtopics(vehicle.get_vehicle_topics())
+
 if __name__ == '__main__':
     # Initialize the ROS node
     rospy.init_node('vehicle_manager')
@@ -530,10 +533,11 @@ if __name__ == '__main__':
     covered_indices_publisher = rospy.Publisher("/Combined_Covered_Indices", Int32MultiArray, queue_size=10)
     pub_poi = rospy.Publisher('/poi_in', PoseStamped, queue_size=10)
     pub_vg = rospy.Publisher('/decoded_vgraph', Graph, queue_size=10)
-    pub_kill = rospy.Publisher('/del_model', String, queue_size=5)
+    pub_kill = rospy.Publisher('/del_model_in', String, queue_size=5)
 
     rate = rospy.Rate(0.5)
     while not rospy.is_shutdown():
+        rospy.Subscriber('/refresh_mqtt', String, refresher)
         availtopics()
         updateVehicleStatus(vehicle_list)
         pub_covered_cell_indices(vehicle_list)
