@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import rospy
-from std_msgs.msg import String, Int32MultiArray, Int32, Bool
+from std_msgs.msg import String, Int32MultiArray, Int32, Bool, Header
 from nav_msgs.msg import Odometry, Path
 from sensor_msgs.msg import LaserScan
 import time 
 import math
 import rospy
-from geometry_msgs.msg import Twist, PoseStamped, PointStamped
+from geometry_msgs.msg import Twist, PoseStamped, PointStamped, Point
 import yaml
 import os
 import numpy as np
@@ -63,6 +63,8 @@ class point:
         self.x = x
         self.y = y
         self.z = z
+    def __repr__(self):
+        return f'({self.x}, {self.y}, {self.z})'
     def getxy(self):
         arr = [self.x,self.y]
         return arr
@@ -154,7 +156,7 @@ class Vehicle:
             if (topic.endswith("Priority")):
                 self.priority_sub = rospy.Subscriber(topic, Int32, self.priority_callback)
                 print(self.name, "subscribed to priority")
-            if (topic.endswith("tare_waypoint")):
+            if (topic.endswith("planner_waypoint")):
                 self.tare_sub = rospy.Subscriber(topic, PointStamped, self.multi_waypoint_callback)
                 print(self.name, "subscribed to way points")
             if (topic.endswith("poi")):
@@ -165,7 +167,7 @@ class Vehicle:
                 print(self.name, "subscribed to vgraphs")
             if (topic.endswith("del_model")):
                 self.tare_sub = rospy.Subscriber(topic, String, self.del_model_callback)
-                print(self.name, "subscribed to model yeeter")
+                print(self.name, "subscribed to model remover")
 
     #Publish topics
     def pubtopics(self):
@@ -199,6 +201,7 @@ class Vehicle:
         self.pos.x = odom_msg.pose.pose.position.x
         self.pos.y = odom_msg.pose.pose.position.y
         self.pos.z = odom_msg.pose.pose.position.z
+        self.orientation = odom_msg.pose.pose.orientation
 
         # Check if vehicle odometry interferes with local path
         if (self.number != vehicle_num):
@@ -234,12 +237,12 @@ class Vehicle:
         return distance <= radius
 
     def multi_waypoint_callback(self,waypoint):
-        now = rospy.Time.now()
-        if (waypoint.header.stamp.to_sec() > (now.to_sec()-5)):
-            self.wp = waypoint
-            self.point.x = waypoint.point.x
-            self.point.y = waypoint.point.y
-            self.point.z = waypoint.point.z   
+        #now = rospy.Time.now()
+        #if (waypoint.header.stamp.to_sec() > (now.to_sec()-5)):
+        self.wp = waypoint
+        self.point.x = waypoint.point.x
+        self.point.y = waypoint.point.y
+        self.point.z = waypoint.point.z
 
     def poi_callback(self, poi):
         global poi_list
@@ -266,135 +269,20 @@ class Vehicle:
     def del_model_callback(self, name):
         pub_kill.publish(name)
 
-class CoverageMapGenerator:
-    def __init__(self, robot_name):
-
-        self.robot_name = robot_name
-        self.binary_map = None
-        
-        # Subscribe to the point cloud topic for this robot
-        self.point_cloud_sub = rospy.Subscriber(f"/{self.robot_name}/point_cloud", PointCloud2, self.process_point_cloud)
-
-        # Set up publisher for the coverage map
-        self.coverage_map_pub = rospy.Publisher(f"/{self.robot_name}/coverage_map", Octomap, queue_size=10)
-    
-
-    def process_point_cloud(self, point_cloud):
-        # Convert PointCloud2 message to PointCloud2 iterator
-        points = point_cloud2.read_points(point_cloud, field_names=("x", "y", "z"))
-
-        # Create octree object
-        octree = octomap.OcTree(0.1)
-
-        # Add points to octree
-        for point in points:
-            octree.updateNode(point[0], point[1], point[2], True)
-
-        # Convert octree to binary octomap message
-        binary_map = octomap_msgs.binary_octomap.Octomap()
-        binary_map.header.frame_id = point_cloud.header.frame_id
-        binary_map.header.stamp = rospy.Time.now()
-        octomap_msgs.binary_octomap.binaryMapToMsg(octree, binary_map)
-
-        # Publish coverage map
-        if self.binary_map is not None:
-            self.coverage_map_pub.publish(self.binary_map)
-
-class BufferedVoronoiCell:
-    def __init__(self, pos, rs):
-        self.pos = pos
-        self.rs = rs
-        self.voronoi = None
-        self.buffered_vertices = []
-        self.buffered_edges = []
-        self.buffered_regions = []
-        self.compute_buffered_voronoi_cell()
-    
-        # Publishers for the regions and markers
-        self.regions_pub = rospy.Publisher('regions', list, queue_size=10)
-        self.marker_pub = rospy.Publisher('markers', Marker, queue_size=10)
-
-
-    def compute_buffered_voronoi_cell(self):
-        # Compute the standard Voronoi cell
-        self.voronoi = Voronoi(self.pos)
-        vertices = self.voronoi.vertices
-        ridges = self.voronoi.ridge_points
-        regions = self.voronoi.regions
-
-        # Compute the buffered Voronoi cell
-        for i, region in enumerate(regions):
-            if len(region) == 0 or -1 in region:
-                continue
-            new_region = []
-            for j, rid in enumerate(region):
-                p1, p2 = ridges[rid]
-                if p1 == -1 or p2 == -1:
-                    break
-                v1, v2 = vertices[p1], vertices[p2]
-                mid = (v1 + v2) / 2
-                dir_vec = v2 - v1
-                dir_unit_vec = dir_vec / np.linalg.norm(dir_vec)
-                normal_vec = np.array([-dir_unit_vec[1], dir_unit_vec[0]])
-                dist = np.linalg.norm(self.pos[i] - mid)
-                buffered_vertex = mid + self.rs * normal_vec
-                self.buffered_vertices.append(buffered_vertex)
-                new_region.append(len(self.buffered_vertices) - 1)
-                if ridges[rid][1] != -1:
-                    self.buffered_edges.append([len(self.buffered_vertices) - 1,
-                                                len(self.buffered_vertices)])
-                else:
-                    self.buffered_edges.append([len(self.buffered_vertices) - 1,
-                                                new_region[0]])
-            self.buffered_regions.append(new_region)
-
-    def plot_buffered_voronoi_cell(self, ax=None):
-        if ax is None:
-            fig, ax = plt.subplots()
-        if self.voronoi is not None:
-            voronoi_plot_2d(self.voronoi, ax=ax, show_vertices=False, line_colors='orange')
-        for i, region in enumerate(self.buffered_regions):
-            vertices = [self.buffered_vertices[v] for v in region]
-            if len(vertices) > 2:
-                ax.fill(*zip(*vertices), alpha=0.2)
-            for edge in self.buffered_edges:
-                x = [self.buffered_vertices[edge[0]][0], self.buffered_vertices[edge[1]][0]]
-                y = [self.buffered_vertices[edge[0]][1], self.buffered_vertices[edge[1]][1]]
-                ax.plot(x, y, 'k-', alpha=0.5)
-
-    # Publishes a marker for visualization in RViz
-    def publish_marker(self, polygon, color):
-        marker = Marker()
-        marker.header.frame_id = "map"
-        marker.type = Marker.POLYGON
-        marker.action = Marker.ADD
-        marker.points = [PointStamped(point=point) for point in polygon]
-        marker.scale.x = 1
-        marker.scale.y = 1
-        marker.scale.z = 1
-        marker.color = color
-        marker.lifetime = rospy.Duration.from_sec(1)
-        self.marker_pub.publish(marker)
-
-
-def updategraph(vehicles):
-    rs = 0.5
-    robot_bvcs = []
-    for vehicle in vehicles:
-        bvc = BufferedVoronoiCell(vehicle.position, vehicle.linear_velocity)
-        robot_bvcs.append(bvc)
-
-
-def generate_vehicle(topic, vehicle_num, name):
+vehicle_veh = Vehicle('topic', '0', 'name')
+def generate_vehicle(topic, vehicle_numb, name):
     if name not in vehicle_name_list:
         # Create a new instance of the Vehicle class with the specified topic, number, and name
-        vehicle = Vehicle(topic, vehicle_num, name)
+        vehicle = Vehicle(topic, vehicle_numb, name)
 
         #Add Vehicle Created to list of created vehicles
         vehicle_name_list.append(vehicle.name)
         vehicle_list.append(vehicle)  
         vehicle_index_list.append(int(vehicle.number))
-
+        if vehicle_numb == vehicle_num:
+            global vehicle_veh
+            vehicle_veh = vehicle
+            print('i am %s', vehicle_veh.name)
         # Return the new vehicle object
         return vehicle
 
@@ -422,13 +310,6 @@ def availtopics():
                     if key_name not in vehicle_name_list:
                         key_name = generate_vehicle(topic_name, elem, key_name)
     
-    # # Create Coverage Map for each Vehicle
-    # for robot_name in vehicle_name_list:
-    #     if robot_name not in generators_name:
-    #         generator = CoverageMapGenerator(robot_name)
-    #         generators.append(generator)
-    #         generators_name.append(robot_name)
-
 def updateVehicleStatus(vehicles):
     for vehicle in vehicles:
         # print(vehicle.name)
@@ -456,74 +337,38 @@ def pub_covered_cell_indices(vehicles):
     cover_array.data = covered_cell_indices
     covered_indices_publisher.publish(cover_array)
     
-def multi_waypoint_sub():
-    #This function adds a new key-value pair for each new availability topic in ROS using rospy.
-
-    # Get a list of all published topics
-    topics = rospy.get_published_topics()
-
-    # Filter the list of topics to only include those with the header "/Availability"
-    tare_topics = [topic_name for topic_name, _ in topics if (topic_name.find('tare_waypoint')!=(-1))]
-
-    #Dictionary for availability topics
-    tare_dict = {}
-
-    #Filter Topic name for numbers and name vehicle according to number
-    for topic_name in tare_topics:
-        split = topic_name.split('/')
-        for elem in split:
-            if (elem.isnumeric() and (elem != vehicle_num)):
-                robot_name = f"robot_{elem}" # Generate a key name like "vehicle_1", "vehicle_2", etc.
-                if robot_name not in tare_dict:
-                    tare_dict[robot_name] = topic_name
-                    #check if vehicle has generated object, if none create object
-                    if robot_name not in tare_name_list:
-                        planner = tare(robot_name,topic_name)
-                        tare_list.append(planner)
-                        tare_name_list.append(planner.id)
-
-def collision_avoidance(vehicle_list,vehicle_name_list):
-    flag = 0
-    robots = [robot.Robot(i) for i in range(len(vehicle_name_list))]
-
-    for num, vehicle in enumerate(vehicle_list):
-        if (vehicle.planner != None):
-            print(vehicle.pos.getxy())
-            robots[num].set_bvc(vehicle.pos.getxy(), safe_rad, corners)
-            robots[num].set_goal(vehicle.planner.point.getxy())
-            flag = 1
-        else:
-            flag = 0
-
-    if (flag == 1):
-        for loop in range(10000):
-            # print loop
-            # all robots re-compute BVC
-            for i , name in enumerate(vehicle_name_list):
-                all_pos = np.zeros((2,5))
-                for r in range(len(vehicle_name_list)):
-                    all_pos[:,r,None] = robots[r].get_pos() # none is used to preserve dimensionality
-                    print(all_pos)
-
-                bb = [x for x in vehicle_index_list if x != i]
-                bb_array = np.array(bb) # this is the IDs of neighboring robots
-                
-                # extract own pos for robot i, as well as all other neighbor robots
-                own_pos = all_pos[:,i]
-                nbr_pos = all_pos[:,bb_array]
-                
-                robots[i].cell.update_bvc(own_pos, nbr_pos, bb_array)
-                robots[i].mem_nbr_dist(nbr_pos, bb_array)
-                robots[i].cell.plot_bvc()
-
-            # all robots do geometric solution
-            for rbt in robots:
-                closest = rbt.bvc_find_closest_to_goal()
-                print(closest)
-
 def refresher(stringy):
     for vehicle in vehicle_list:
         vehicle.subtopics(vehicle.get_vehicle_topics())
+
+# Check if line segments AB and CD intersect
+def ccw(A,B,C):
+    return (C.y-A.y)*(B.x-A.x) > (B.y-A.y)*(C.x-A.x)
+def intersect(A,B,C,D):
+    return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
+
+def anti_collider():
+    global waiting
+    for veh in vehicle_list:
+        if veh.number == vehicle_veh.number:
+            continue
+        print((vehicle_veh.pos, vehicle_veh.point, veh.pos, veh.point))
+        if intersect(vehicle_veh.pos, vehicle_veh.point, veh.pos, veh.point):
+            if veh.priority < vehicle_veh.priority:
+                if waiting:
+                    return
+                waiting = True
+                pub_tare_tog.publish(Bool(False))
+                w = vehicle_veh.orientation.w
+                x = vehicle_veh.pos.x - 2*np.cos(2*np.arccos(w))
+                y = vehicle_veh.pos.y - 2*np.sin(2*np.arccos(w))
+                z = vehicle_veh.pos.z
+                pub_wp.publish(PointStamped(header=Header(stamp=rospy.Time.now(),frame_id='map'), point=Point(x,y,z)))
+                print('reversing')
+                return
+    waiting = False
+    pub_tare_tog.publish(Bool(True))
+    return
 
 if __name__ == '__main__':
     # Initialize the ROS node
@@ -534,13 +379,15 @@ if __name__ == '__main__':
     pub_poi = rospy.Publisher('/poi_in', PoseStamped, queue_size=10)
     pub_vg = rospy.Publisher('/decoded_vgraph', Graph, queue_size=10)
     pub_kill = rospy.Publisher('/del_model_in', String, queue_size=5)
+    pub_wp = rospy.Publisher('/way_point', PointStamped, queue_size=1)
+    pub_tare_tog = rospy.Publisher('/toggle_wp', Bool, queue_size=5)
 
-    rate = rospy.Rate(0.5)
+    rate = rospy.Rate(5)
     while not rospy.is_shutdown():
         rospy.Subscriber('/refresh_mqtt', String, refresher)
         availtopics()
         updateVehicleStatus(vehicle_list)
         pub_covered_cell_indices(vehicle_list)
         pub_exploring_cell_indices(vehicle_list)
-        collision_avoidance(vehicle_list,vehicle_name_list)
+        anti_collider()
         rate.sleep()
