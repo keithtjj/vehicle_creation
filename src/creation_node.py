@@ -116,7 +116,9 @@ class Vehicle:
         self.subavail(self.topics)
 
         #Subscribe to topics
-        self.subtopics(self.topics)
+        #self.subtopics(self.topics)
+        self.subscribs = []
+        self.sub_topics(self.topic_list)
 
         #Publish topics
         self.pubtopics()
@@ -142,6 +144,7 @@ class Vehicle:
                 print(self.name, "Subscribed to" , topic)
     
     #subscribe to topics
+    '''
     def subtopics(self, topics):
         for topic,msg_type in topics:
             if (topic.endswith("Odometry")):
@@ -160,14 +163,15 @@ class Vehicle:
                 self.tare_sub = rospy.Subscriber(topic, PointStamped, self.multi_waypoint_callback)
                 print(self.name, "subscribed to way points")
             if (topic.endswith("poi")):
-                self.tare_sub = rospy.Subscriber(topic, PoseStamped, self.poi_callback)
+                self.poi_sub = rospy.Subscriber(topic, PoseStamped, self.poi_callback)
                 print(self.name, "subscribed to pois")
             if (topic.endswith("vgraph")):
-                self.tare_sub = rospy.Subscriber(topic, Graph, self.vg_callback)
+                self.vgraph_sub = rospy.Subscriber(topic, Graph, self.vg_callback)
                 print(self.name, "subscribed to vgraphs")
             if (topic.endswith("del_model")):
-                self.tare_sub = rospy.Subscriber(topic, String, self.del_model_callback)
+                self.del_model_sub = rospy.Subscriber(topic, String, self.del_model_callback)
                 print(self.name, "subscribed to model remover")
+    '''    
 
     #Publish topics
     def pubtopics(self):
@@ -179,7 +183,6 @@ class Vehicle:
             if now - self._last_available >= 30:
                 self.availability = False
                 rospy.loginfo("%s availability is now: %s", self.name, self.availability)
-
 
     def avail_callback(self, message):
         self.availability = message.data
@@ -210,7 +213,6 @@ class Vehicle:
                     self.redflag = 1
                 else:
                     self.redflag = 0          
-
         # rospy.loginfo("Received odometry message: position = %s, orientation = %s", self.position, self.orientation)
 
     def exploring_subspace_callback(self, array_msg):
@@ -269,6 +271,28 @@ class Vehicle:
     def del_model_callback(self, name):
         pub_kill.publish(name)
 
+    topic_list = [["Odometry", Odometry, odometry_callback], 
+                  ["Exploring_subspaces", Int32MultiArray, exploring_subspace_callback], 
+                  ["Covered_subspaces", Int32MultiArray, covered_subspace_callback], 
+                  ["Priority", Int32, priority_callback],
+                  ["planner_waypoint", PointStamped, multi_waypoint_callback], 
+                  ["poi",PoseStamped, poi_callback], 
+                  ["vgraph", Graph, vg_callback], 
+                  ["del_model", String, del_model_callback]]
+    
+    def sub_topics(self, topic_list):
+        for topic in topic_list:
+            name = 'vehicle/%s/%s' % (self.number, topic[0])
+            subby = rospy.Subscriber(name, topic[1], self.super_callback, topic)
+            print('subbed to', name)
+            self.subscribs.append(subby)
+        print('subbed to %s topics' % self.name)
+
+    def super_callback(self, msg, toppy):
+        for topic in self.topic_list:
+            if toppy == topic:
+                topic[2](self, msg)
+
 vehicle_veh = Vehicle('topic', '0', 'name')
 def generate_vehicle(topic, vehicle_numb, name):
     if name not in vehicle_name_list:
@@ -282,7 +306,7 @@ def generate_vehicle(topic, vehicle_numb, name):
         if vehicle_numb == vehicle_num:
             global vehicle_veh
             vehicle_veh = vehicle
-            print('i am %s', vehicle_veh.name)
+            print('i am %s' % vehicle_veh.name)
         # Return the new vehicle object
         return vehicle
 
@@ -339,7 +363,9 @@ def pub_covered_cell_indices(vehicles):
     
 def refresher(stringy):
     for vehicle in vehicle_list:
-        vehicle.subtopics(vehicle.get_vehicle_topics())
+        #vehicle.subtopics(vehicle.get_vehicle_topics())
+        vehicle.subscribs = []
+        vehicle.sub_topics(vehicle.topic_list)
 
 # Check if line segments AB and CD intersect
 def ccw(A,B,C):
@@ -352,20 +378,21 @@ def anti_collider():
     for veh in vehicle_list:
         if veh.number == vehicle_veh.number:
             continue
-        print((vehicle_veh.pos, vehicle_veh.point, veh.pos, veh.point))
+        #print((vehicle_veh.pos, vehicle_veh.point, veh.pos, veh.point))
         if intersect(vehicle_veh.pos, vehicle_veh.point, veh.pos, veh.point):
-            if veh.priority < vehicle_veh.priority:
-                if waiting:
-                    return
-                waiting = True
-                pub_tare_tog.publish(Bool(False))
-                w = vehicle_veh.orientation.w
-                x = vehicle_veh.pos.x - 2*np.cos(2*np.arccos(w))
-                y = vehicle_veh.pos.y - 2*np.sin(2*np.arccos(w))
-                z = vehicle_veh.pos.z
-                pub_wp.publish(PointStamped(header=Header(stamp=rospy.Time.now(),frame_id='map'), point=Point(x,y,z)))
-                print('reversing')
+            if veh.priority > vehicle_veh.priority:
+                continue
+            if waiting:
                 return
+            waiting = True
+            pub_tare_tog.publish(Bool(False))
+            w = vehicle_veh.orientation.w
+            x = vehicle_veh.pos.x - 2*np.cos(2*np.arccos(w))
+            y = vehicle_veh.pos.y - 2*np.sin(2*np.arccos(w))
+            z = vehicle_veh.pos.z
+            pub_wp.publish(PointStamped(header=Header(stamp=rospy.Time.now(),frame_id='map'), point=Point(x,y,z)))
+            print('reversing')
+            return
     waiting = False
     pub_tare_tog.publish(Bool(True))
     return
