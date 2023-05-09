@@ -378,7 +378,7 @@ def anti_collider():
     for veh in vehicle_list:
         if veh.number == vehicle_veh.number:
             continue
-        #print((vehicle_veh.pos, vehicle_veh.point, veh.pos, veh.point))
+        print((vehicle_veh.pos, vehicle_veh.point, veh.pos, veh.point))
         if intersect(vehicle_veh.pos, vehicle_veh.point, veh.pos, veh.point):
             if veh.priority > vehicle_veh.priority:
                 continue
@@ -387,8 +387,9 @@ def anti_collider():
             waiting = True
             pub_tare_tog.publish(Bool(False))
             w = vehicle_veh.orientation.w
-            x = vehicle_veh.pos.x - 2*np.cos(2*np.arccos(w))
-            y = vehicle_veh.pos.y - 2*np.sin(2*np.arccos(w))
+            r = 1
+            x = vehicle_veh.pos.x + r*np.cos(2*np.arccos(w)+np.pi/2)
+            y = vehicle_veh.pos.y + r*np.sin(2*np.arccos(w)+np.pi/2)
             z = vehicle_veh.pos.z
             pub_wp.publish(PointStamped(header=Header(stamp=rospy.Time.now(),frame_id='map'), point=Point(x,y,z)))
             print('reversing')
