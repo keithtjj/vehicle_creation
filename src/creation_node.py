@@ -283,7 +283,7 @@ class Vehicle:
     def sub_topics(self, topic_list):
         for topic in topic_list:
             name = 'vehicle/%s/%s' % (self.number, topic[0])
-            subby = rospy.Subscriber(name, topic[1], self.super_callback, topic)
+            subby = rospy.Subscriber(name, topic[1], self.super_callback, callback_args=topic, queue_size=1)
             print('subbed to', name)
             self.subscribs.append(subby)
         print('subbed to %s topics' % self.name)
