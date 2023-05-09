@@ -207,6 +207,7 @@ class Vehicle:
         self.orientation = odom_msg.pose.pose.orientation
 
         # Check if vehicle odometry interferes with local path
+        
         if (self.number != vehicle_num):
             for i in range(len(self.local_path)):
                 if self.isInsideCircularBoundary(self.position.x, self.position.y, self.position.z, self.obstacle_threshold, self.local_path[i]['position_x'], self.local_path[i]['position_y'], self.local_path[i]['position_z']):
@@ -271,7 +272,14 @@ class Vehicle:
     def del_model_callback(self, name):
         pub_kill.publish(name)
 
-    topic_list = [["Odometry", Odometry, odometry_callback], 
+    def pose_callback(self, msg):
+        self.position = msg.pose.position
+        self.pos.x = msg.pose.position.x
+        self.pos.y = msg.pose.position.y
+        self.pos.z = msg.pose.position.z
+        self.orientation = msg.pose.orientation
+
+    topic_list = [["pose_stamp", PoseStamped, pose_callback], 
                   ["Exploring_subspaces", Int32MultiArray, exploring_subspace_callback], 
                   ["Covered_subspaces", Int32MultiArray, covered_subspace_callback], 
                   ["Priority", Int32, priority_callback],
@@ -370,6 +378,9 @@ def refresher(stringy):
         vehicle.subscribs = []
         vehicle.sub_topics(vehicle.topic_list)
 
+def odom_cb(msg):
+    pub_pose.publish(PoseStamped(header=msg.header, pose=msg.pose.pose))
+
 # Check if line segments AB and CD intersect
 def ccw(A,B,C):
     return (C.y-A.y)*(B.x-A.x) > (B.y-A.y)*(C.x-A.x)
@@ -412,10 +423,11 @@ if __name__ == '__main__':
     pub_kill = rospy.Publisher('/del_model_in', String, queue_size=5)
     pub_wp = rospy.Publisher('/way_point', PointStamped, queue_size=1)
     pub_tare_tog = rospy.Publisher('/toggle_wp', Bool, queue_size=5)
-
+    pub_pose = rospy.Publisher('/pose_stamp', PoseStamped, queue_size=1)
     rate = rospy.Rate(5)
     while not rospy.is_shutdown():
         #rospy.Subscriber('/refresh_mqtt', String, refresher)
+        rospy.Subscriber('/state_estimation', Odometry, odom_cb)
         availtopics()
         updateVehicleStatus(vehicle_list)
         pub_covered_cell_indices(vehicle_list)
