@@ -54,6 +54,7 @@ for i in vehicle_split:
 tare_list = []
 tare_name_list = []
 tare_wp = PointStamped()
+current_pose = PoseStamped()
 best_vg = Graph()
 
 poi_list = []
@@ -309,7 +310,6 @@ def generate_vehicle(topic, vehicle_numb, name):
     if name not in vehicle_name_list:
         # Create a new instance of the Vehicle class with the specified topic, number, and name
         vehicle = Vehicle(topic, vehicle_numb, name)
-
         #Add Vehicle Created to list of created vehicles
         vehicle_name_list.append(vehicle.name)
         vehicle_list.append(vehicle)  
@@ -379,7 +379,13 @@ def refresher(stringy):
         vehicle.sub_topics(vehicle.topic_list)
 
 def odom_cb(msg):
-    pub_pose.publish(PoseStamped(header=msg.header, pose=msg.pose.pose))
+    global current_pose
+    current_pose = PoseStamped(header=msg.header, pose=msg.pose.pose)
+    pub_pose.publish(current_pose)
+
+def twp_cb(msg):
+    global tare_wp
+    tare_wp = msg
 
 # Check if line segments AB and CD intersect
 def ccw(A,B,C):
@@ -390,21 +396,25 @@ def intersect(A,B,C,D):
 def anti_collider():
     global waiting
     for veh in vehicle_list:
-        if veh.number == vehicle_veh.number:
+        if veh.number == vehicle_num:
             continue
-        print((vehicle_veh.pos, vehicle_veh.point, veh.pos, veh.point))
-        if intersect(vehicle_veh.pos, vehicle_veh.point, veh.pos, veh.point):
+        current_point = point(current_pose.pose.position.x,
+                              current_pose.pose.position.y,
+                              current_pose.pose.position.z)
+        next_wp = point(tare_wp.point.x,tare_wp.point.y,tare_wp.point.z)
+        print((current_point, next_wp, veh.pos, veh.point))
+        if intersect(current_point, next_wp, veh.pos, veh.point):
             if veh.priority > vehicle_veh.priority:
                 continue
             if waiting:
                 return
             waiting = True
             pub_tare_tog.publish(Bool(False))
-            w = vehicle_veh.orientation.w
+            w = current_pose.orientation.w
             r = 1
-            x = vehicle_veh.pos.x + r*np.cos(2*np.arccos(w)+np.pi/2)
-            y = vehicle_veh.pos.y + r*np.sin(2*np.arccos(w)+np.pi/2)
-            z = vehicle_veh.pos.z
+            x = current_point.x + r*np.cos(2*np.arccos(w)+np.pi/2)
+            y = current_point.y + r*np.sin(2*np.arccos(w)+np.pi/2)
+            z = current_point.z
             pub_wp.publish(PointStamped(header=Header(stamp=rospy.Time.now(),frame_id='map'), point=Point(x,y,z)))
             print('reversing')
             return
@@ -428,6 +438,7 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         #rospy.Subscriber('/refresh_mqtt', String, refresher)
         rospy.Subscriber('/state_estimation', Odometry, odom_cb)
+        rospy.Subscriber('/tare_way_point', PointStamped, twp_cb)
         availtopics()
         updateVehicleStatus(vehicle_list)
         pub_covered_cell_indices(vehicle_list)
