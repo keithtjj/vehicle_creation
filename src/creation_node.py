@@ -290,6 +290,9 @@ class Vehicle:
                   ["del_model", String, del_model_callback]]
     
     def sub_topics(self, topic_list):
+        if int(self.number) == 0:
+            print('veh creator started')
+            return
         for topic in topic_list:
             name = 'vehicle/%s/%s' % (self.number, topic[0])
             if topic[0] == 'Odometry':
