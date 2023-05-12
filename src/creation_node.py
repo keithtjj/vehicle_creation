@@ -413,7 +413,7 @@ def anti_collider():
                 return
             waiting = True
             pub_tare_tog.publish(Bool(False))
-            w = current_pose.orientation.w
+            w = current_pose.pose.orientation.w
             r = 1
             x = current_point.x + r*np.cos(2*np.arccos(w)+np.pi/2)
             y = current_point.y + r*np.sin(2*np.arccos(w)+np.pi/2)
@@ -441,8 +441,8 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         #rospy.Subscriber('/refresh_mqtt', String, refresher)
         rospy.Subscriber('/state_estimation', Odometry, odom_cb, queue_size=1)
-        rospy.Subscriber('/tare_way_point', PointStamped, twp_cb)
-        rospy.Subscriber('/far_way_point', PointStamped, twp_cb)
+        rospy.Subscriber('/tare_way_point', PointStamped, twp_cb, queue_size=1)
+        rospy.Subscriber('/far_way_point', PointStamped, twp_cb, queue_size=1)
         availtopics()
         updateVehicleStatus(vehicle_list)
         pub_covered_cell_indices(vehicle_list)
