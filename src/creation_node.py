@@ -440,8 +440,9 @@ if __name__ == '__main__':
     rate = rospy.Rate(5)
     while not rospy.is_shutdown():
         #rospy.Subscriber('/refresh_mqtt', String, refresher)
-        rospy.Subscriber('/state_estimation', Odometry, odom_cb)
+        rospy.Subscriber('/state_estimation', Odometry, odom_cb, queue_size=1)
         rospy.Subscriber('/tare_way_point', PointStamped, twp_cb)
+        rospy.Subscriber('/far_way_point', PointStamped, twp_cb)
         availtopics()
         updateVehicleStatus(vehicle_list)
         pub_covered_cell_indices(vehicle_list)
