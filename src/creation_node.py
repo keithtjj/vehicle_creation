@@ -16,6 +16,7 @@ from sensor_msgs.msg import PointCloud2
 # from octomap_msgs import binary_octomap
 from visibility_graph_msg.msg import Graph
 from visualization_msgs.msg import Marker
+from tare_msgs.msg import SubspaceArray
 from std_msgs.msg import ColorRGBA
 
 from scipy.spatial import Voronoi, voronoi_plot_2d
@@ -281,8 +282,8 @@ class Vehicle:
         self.orientation = msg.pose.orientation
 
     topic_list = [["pose_stamp", PoseStamped, pose_callback], 
-                  ["Exploring_subspaces", Int32MultiArray, exploring_subspace_callback], 
-                  ["Covered_subspaces", Int32MultiArray, covered_subspace_callback], 
+                  ["Exploring_subspaces", SubspaceArray, exploring_subspace_callback], 
+                  ["Covered_subspaces", SubspaceArray, covered_subspace_callback], 
                   ["Priority", Int32, priority_callback],
                   ["planner_waypoint", PointStamped, multi_waypoint_callback], 
                   ["poi",PoseStamped, poi_callback], 
@@ -356,30 +357,26 @@ def updateVehicleStatus(vehicles):
             print(vehicle.name + " is invading personal space")
 
 def pub_exploring_cell_indices(vehicles):
-    exploring_array = Int32MultiArray()
+    exploring_array = SubspaceArray()
     exploring_cell_indices = []
     for vehicle in vehicles:
         if (vehicle.number != vehicle_num):
             for i in vehicle.exploring_indices:
-                exploring_cell_indices.append(int(i))
+                exploring_cell_indices.append(i)
     exploring_array.data = exploring_cell_indices
+    exploring_array.size = len(exploring_cell_indices)
     exploring_indices_publisher.publish(exploring_array)
 
 def pub_covered_cell_indices(vehicles):
-    cover_array = Int32MultiArray()
+    cover_array = SubspaceArray()
     covered_cell_indices = []
     for vehicle in vehicles:
         if (vehicle.number != vehicle_num):
             for i in vehicle.covered_indices:
                 covered_cell_indices.append(int(i))
     cover_array.data = covered_cell_indices
+    cover_array.size = len(covered_cell_indices)
     covered_indices_publisher.publish(cover_array)
-    
-def refresher(stringy):
-    for vehicle in vehicle_list:
-        #vehicle.subtopics(vehicle.get_vehicle_topics())
-        vehicle.subscribs = []
-        vehicle.sub_topics(vehicle.topic_list)
 
 def odom_cb(msg):
     global current_pose
@@ -429,17 +426,17 @@ if __name__ == '__main__':
     # Initialize the ROS node
     rospy.init_node('vehicle_manager')
     
-    exploring_indices_publisher = rospy.Publisher("/Combined_Exploring_Indices", Int32MultiArray, queue_size=10)
-    covered_indices_publisher = rospy.Publisher("/Combined_Covered_Indices", Int32MultiArray, queue_size=10)
+    exploring_indices_publisher = rospy.Publisher("/Combined_Exploring_Indices", SubspaceArray, queue_size=10)
+    covered_indices_publisher = rospy.Publisher("/Combined_Covered_Indices", SubspaceArray, queue_size=10)
     pub_poi = rospy.Publisher('/poi_in', PoseStamped, queue_size=10)
     pub_vg = rospy.Publisher('/decoded_vgraph', Graph, queue_size=10)
     pub_kill = rospy.Publisher('/del_model_in', String, queue_size=5)
     pub_wp = rospy.Publisher('/way_point', PointStamped, queue_size=1)
     pub_tare_tog = rospy.Publisher('/toggle_wp', Bool, queue_size=5)
     pub_pose = rospy.Publisher('/pose_stamp', PoseStamped, queue_size=1)
+    
     rate = rospy.Rate(5)
     while not rospy.is_shutdown():
-        #rospy.Subscriber('/refresh_mqtt', String, refresher)
         rospy.Subscriber('/state_estimation', Odometry, odom_cb, queue_size=1)
         rospy.Subscriber('/tare_way_point', PointStamped, twp_cb, queue_size=1)
         rospy.Subscriber('/far_way_point', PointStamped, twp_cb, queue_size=1)

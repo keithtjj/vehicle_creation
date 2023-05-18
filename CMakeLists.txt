@@ -15,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   sensor_msgs
   octomap_msgs
+  tare_msgs
+  visibility_graph_msg
 )
 
 ## System dependencies are found with CMake's conventions
