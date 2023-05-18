@@ -373,7 +373,7 @@ def pub_covered_cell_indices(vehicles):
     for vehicle in vehicles:
         if (vehicle.number != vehicle_num):
             for i in vehicle.covered_indices:
-                covered_cell_indices.append(int(i))
+                covered_cell_indices.append(i)
     cover_array.data = covered_cell_indices
     cover_array.size = len(covered_cell_indices)
     covered_indices_publisher.publish(cover_array)
