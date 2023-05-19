@@ -144,36 +144,6 @@ class Vehicle:
             if (topic.endswith("availability")):
                 self.avail_sub = rospy.Subscriber(topic, Bool, self.avail_callback)
                 print(self.name, "Subscribed to" , topic)
-    
-    #subscribe to topics
-    '''
-    def subtopics(self, topics):
-        for topic,msg_type in topics:
-            if (topic.endswith("Odometry")):
-                self.odom_sub = rospy.Subscriber(topic, Odometry, self.odometry_callback)
-                print(self.name, "subscribed to Odometry")
-            if (topic.endswith("Exploring_subspaces")):
-                self.exploring_sub = rospy.Subscriber(topic, Int32MultiArray, self.exploring_subspace_callback)
-                print(self.name, "subscribed to indices")
-            if (topic.endswith("Covered_subspaces")):
-                self.covered_sub = rospy.Subscriber(topic, Int32MultiArray, self.covered_subspace_callback)
-                print(self.name, "subscribed to indices")
-            if (topic.endswith("Priority")):
-                self.priority_sub = rospy.Subscriber(topic, Int32, self.priority_callback)
-                print(self.name, "subscribed to priority")
-            if (topic.endswith("planner_waypoint")):
-                self.tare_sub = rospy.Subscriber(topic, PointStamped, self.multi_waypoint_callback)
-                print(self.name, "subscribed to way points")
-            if (topic.endswith("poi")):
-                self.poi_sub = rospy.Subscriber(topic, PoseStamped, self.poi_callback)
-                print(self.name, "subscribed to pois")
-            if (topic.endswith("vgraph")):
-                self.vgraph_sub = rospy.Subscriber(topic, Graph, self.vg_callback)
-                print(self.name, "subscribed to vgraphs")
-            if (topic.endswith("del_model")):
-                self.del_model_sub = rospy.Subscriber(topic, String, self.del_model_callback)
-                print(self.name, "subscribed to model remover")
-    '''    
 
     #Publish topics
     def pubtopics(self):
@@ -281,9 +251,14 @@ class Vehicle:
         self.pos.z = msg.pose.position.z
         self.orientation = msg.pose.orientation
 
+    def keypose_callback(self, msg):
+        if int(self.number) != int(vehicle_num):
+            pub_keypose.publish(msg)
+
     topic_list = [["pose_stamp", PoseStamped, pose_callback], 
                   ["Exploring_subspaces", SubspaceArray, exploring_subspace_callback], 
                   ["Covered_subspaces", SubspaceArray, covered_subspace_callback], 
+                  ["keypose_node", Odometry, keypose_callback],
                   ["Priority", Int32, priority_callback],
                   ["planner_waypoint", PointStamped, multi_waypoint_callback], 
                   ["poi",PoseStamped, poi_callback], 
@@ -297,9 +272,9 @@ class Vehicle:
         for topic in topic_list:
             name = 'vehicle/%s/%s' % (self.number, topic[0])
             if topic[0] == 'Odometry':
-                subby = rospy.Subscriber(name, topic[1], self.super_callback, callback_args=topic, queue_size=1, buff_size=2**11)
-            else:
                 subby = rospy.Subscriber(name, topic[1], self.super_callback, callback_args=topic, queue_size=1)
+            else:
+                subby = rospy.Subscriber(name, topic[1], self.super_callback, callback_args=topic, queue_size=5)
             print('subbed to', name)
             self.subscribs.append(subby)
         print('subbed to %s topics' % self.name)
@@ -402,7 +377,7 @@ def anti_collider():
                               current_pose.pose.position.y,
                               current_pose.pose.position.z)
         next_wp = point(tare_wp.point.x,tare_wp.point.y,tare_wp.point.z)
-        print((current_point, next_wp, veh.pos, veh.point))
+        #print((current_point, next_wp, veh.pos, veh.point))
         if intersect(current_point, next_wp, veh.pos, veh.point):
             if veh.priority > vehicle_veh.priority:
                 continue
@@ -434,6 +409,7 @@ if __name__ == '__main__':
     pub_wp = rospy.Publisher('/way_point', PointStamped, queue_size=1)
     pub_tare_tog = rospy.Publisher('/toggle_wp', Bool, queue_size=5)
     pub_pose = rospy.Publisher('/pose_stamp', PoseStamped, queue_size=1)
+    pub_keypose = rospy.Publisher('/other_keypose', Odometry, queue_size=1)
     
     rate = rospy.Rate(5)
     while not rospy.is_shutdown():
