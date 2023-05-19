@@ -16,7 +16,7 @@ from sensor_msgs.msg import PointCloud2
 # from octomap_msgs import binary_octomap
 from visibility_graph_msg.msg import Graph
 from visualization_msgs.msg import Marker
-from tare_msgs.msg import SubspaceArray
+from tare_msgs.msg import SubspaceArray, NodeAndEdge
 from std_msgs.msg import ColorRGBA
 
 from scipy.spatial import Voronoi, voronoi_plot_2d
@@ -258,7 +258,7 @@ class Vehicle:
     topic_list = [["pose_stamp", PoseStamped, pose_callback], 
                   ["Exploring_subspaces", SubspaceArray, exploring_subspace_callback], 
                   ["Covered_subspaces", SubspaceArray, covered_subspace_callback], 
-                  ["keypose_node", Odometry, keypose_callback],
+                  ["keypose_node", NodeAndEdge, keypose_callback],
                   ["Priority", Int32, priority_callback],
                   ["planner_waypoint", PointStamped, multi_waypoint_callback], 
                   ["poi",PoseStamped, poi_callback], 
@@ -409,7 +409,7 @@ if __name__ == '__main__':
     pub_wp = rospy.Publisher('/way_point', PointStamped, queue_size=1)
     pub_tare_tog = rospy.Publisher('/toggle_wp', Bool, queue_size=5)
     pub_pose = rospy.Publisher('/pose_stamp', PoseStamped, queue_size=1)
-    pub_keypose = rospy.Publisher('/other_keypose', Odometry, queue_size=1)
+    pub_keypose = rospy.Publisher('/other_keypose', NodeAndEdge, queue_size=1)
     
     rate = rospy.Rate(5)
     while not rospy.is_shutdown():
