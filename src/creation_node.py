@@ -17,13 +17,8 @@ from sensor_msgs.msg import PointCloud2
 from visibility_graph_msg.msg import Graph
 from visualization_msgs.msg import Marker
 from tare_msgs.msg import SubspaceArray, NodeAndEdge
-from std_msgs.msg import ColorRGBA
-
-from scipy.spatial import Voronoi, voronoi_plot_2d
 
 import numpy as np
-import random
-import robot
 
 script_path = os.path.abspath(__file__)
 script_dir = os.path.dirname(script_path)
@@ -160,33 +155,6 @@ class Vehicle:
         self.availability = message.data
         self._last_available = rospy.get_time()
         # print(self.name, "is available:", self.availability)
-    
-    def odometry_callback(self, odom_msg):
-        # Store latest pose of the robot
-        robot_id = odom_msg.child_frame_id
-        pose = odom_msg.pose.pose
-        # self.robot_poses[robot_id] = pose
-
-        # Get the robot's linear and angular velocities
-        self.linear_velocity = odom_msg.twist.twist.linear
-        self.angular_velocity = odom_msg.twist.twist.angular
-
-        # Extract the position and orientation data from the Odometry message
-        self.position = odom_msg.pose.pose.position
-        self.pos.x = odom_msg.pose.pose.position.x
-        self.pos.y = odom_msg.pose.pose.position.y
-        self.pos.z = odom_msg.pose.pose.position.z
-        self.orientation = odom_msg.pose.pose.orientation
-
-        # Check if vehicle odometry interferes with local path
-        
-        if (self.number != vehicle_num):
-            for i in range(len(self.local_path)):
-                if self.isInsideCircularBoundary(self.position.x, self.position.y, self.position.z, self.obstacle_threshold, self.local_path[i]['position_x'], self.local_path[i]['position_y'], self.local_path[i]['position_z']):
-                    self.redflag = 1
-                else:
-                    self.redflag = 0          
-        # rospy.loginfo("Received odometry message: position = %s, orientation = %s", self.position, self.orientation)
 
     def exploring_subspace_callback(self, array_msg):
         self.exploring_indices = array_msg.data
