@@ -221,14 +221,14 @@ class Vehicle:
 
     def poi_callback(self, poi):
         global poi_list
-        r=5
+        r=2
         if poi.header.frame_id == 'test':
             return
-        for po in poi_list:
-            if po.header.frame_id != poi.header.frame_id:
+        for prev_poi in poi_list:
+            if poi.header.frame_id != prev_poi.header.frame_id:
                 continue
-            dx = po.pose.position.x - poi.pose.position.x
-            dy = po.pose.position.y - poi.pose.position.y
+            dx = poi.point.x - prev_poi.point.x
+            dy = poi.point.y - prev_poi.point.y
             dxy = dx**2 + dy **2
             if dxy < r**2:
                 return 
@@ -261,7 +261,7 @@ class Vehicle:
                   ["keypose_node", NodeAndEdge, keypose_callback],
                   ["Priority", Int32, priority_callback],
                   ["planner_waypoint", PointStamped, multi_waypoint_callback], 
-                  ["poi",PoseStamped, poi_callback], 
+                  ["poi",PointStamped, poi_callback], 
                   ["vgraph", Graph, vg_callback], 
                   ["del_model", String, del_model_callback]]
     
@@ -403,7 +403,7 @@ if __name__ == '__main__':
     
     exploring_indices_publisher = rospy.Publisher("/Combined_Exploring_Indices", SubspaceArray, queue_size=10)
     covered_indices_publisher = rospy.Publisher("/Combined_Covered_Indices", SubspaceArray, queue_size=10)
-    pub_poi = rospy.Publisher('/poi_in', PoseStamped, queue_size=10)
+    pub_poi = rospy.Publisher('/poi_in', PointStamped, queue_size=10)
     pub_vg = rospy.Publisher('/decoded_vgraph', Graph, queue_size=10)
     pub_kill = rospy.Publisher('/del_model_in', String, queue_size=5)
     pub_wp = rospy.Publisher('/way_point', PointStamped, queue_size=1)
