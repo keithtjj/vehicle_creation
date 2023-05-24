@@ -4,7 +4,6 @@ import rospy
 from std_msgs.msg import String, Int32MultiArray, Int32, Bool, Header
 from nav_msgs.msg import Odometry, Path
 from sensor_msgs.msg import LaserScan
-import time 
 import math
 import rospy
 from geometry_msgs.msg import Twist, PoseStamped, PointStamped, Point
@@ -65,25 +64,6 @@ class point:
     def getxy(self):
         arr = [self.x,self.y]
         return arr
-
-class Timer:
-    def __init__(self):
-        self.start_time = None
-        self.elapsed_time = None
-
-    def start(self):
-        self.start_time = time.time()
-
-    def stop(self):
-        if self.start_time is not None:
-            self.elapsed_time = time.time() - self.start_time
-            self.start_time = None
-        else:
-            raise ValueError("Timer not started")
-
-    def reset(self):
-        self.start_time = None
-        self.elapsed_time = None
 
 class Vehicle:
     def __init__(self, topic_name, vehicle_index, name):
@@ -335,24 +315,25 @@ def ccw(A,B,C):
     return (C.y-A.y)*(B.x-A.x) > (B.y-A.y)*(C.x-A.x)
 def intersect(A,B,C,D):
     return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
+def distance(A,B):
+    return np.sqrt((A.x-B.x)**2 + (A.y-B.y)**2 + (A.z-B.z)**2)
 
 def anti_collider():
     global waiting
     for veh in vehicle_list:
         if veh.number == vehicle_num:
             continue
-        current_point = point(current_pose.pose.position.x,
-                              current_pose.pose.position.y,
-                              current_pose.pose.position.z)
+        current_point = point(current_pose.pose.position.x, current_pose.pose.position.y, current_pose.pose.position.z)
         next_wp = point(tare_wp.point.x,tare_wp.point.y,tare_wp.point.z)
         #print((current_point, next_wp, veh.pos, veh.point))
-        if intersect(current_point, next_wp, veh.pos, veh.point):
+        if intersect(current_point, next_wp, veh.pos, veh.point) and distance(current_point, veh.pos) > 2:
             if veh.priority > vehicle_veh.priority:
                 continue
             if waiting:
                 return
             waiting = True
             pub_tare_tog.publish(Bool(False))
+            # make ugv of lower priority go to its left
             w = current_pose.pose.orientation.w
             r = 1
             x = current_point.x + r*np.cos(2*np.arccos(w)+np.pi/2)
